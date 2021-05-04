@@ -1,29 +1,29 @@
 #![no_std]
 #![no_main]
 
-// Pull in the panic handler from panic-halt
-extern crate panic_halt;
-
 use arduino_uno::prelude::*;
+use panic_halt as _;
 
 #[arduino_uno::entry]
 fn main() -> ! {
     let dp = arduino_uno::Peripherals::take().unwrap();
+
     let mut pins = arduino_uno::Pins::new(dp.PORTB, dp.PORTC, dp.PORTD);
 
-    // Digital pin 13 is also connected to an onboard LED marked "L"
-    let mut led = pins.d13.into_output(&mut pins.ddr);
+    let mut serial = arduino_uno::Serial::new(
+        dp.USART0,
+        pins.d0,
+        pins.d1.into_output(&mut pins.ddr),
+        9600.into_baudrate(),
+    );
 
-    led.set_high().void_unwrap();
+    ufmt::uwriteln!(&mut serial, "Hello from Arduino!\r").void_unwrap();
 
     loop {
-        led.toggle().void_unwrap();
-        arduino_uno::delay_ms(200);
-        led.toggle().void_unwrap();
-        arduino_uno::delay_ms(200);
-        led.toggle().void_unwrap();
-        arduino_uno::delay_ms(200);
-        led.toggle().void_unwrap();
-        arduino_uno::delay_ms(800);
+        // Read a byte from the serial connection
+        let b = nb::block!(serial.read()).void_unwrap();
+
+        // Answer
+        ufmt::uwriteln!(&mut serial, "Got {}!\r", b).void_unwrap();
     }
 }
